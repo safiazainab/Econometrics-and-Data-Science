@@ -1,0 +1,204 @@
+######################################### CODE FILE #####################
+# ECON32252 - FINAL PROJECT R CODE
+
+################# INSTALL PACKAGES
+install.packages("tidyverse")
+install.packages("readxl")
+install.packages("dplyr")
+install.packages("psych")
+
+################# LOAD PACKAGES
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(haven)
+library(psych)
+
+#Import Dataset
+Jan2Jun1999 <- read_dta("q1_99_jan-mar_q2_99_apr-jun.dta")
+
+#Pick variables from the original data and the dictionary linked in the file
+#These variables were picked from the second quarter of the Jan to June 1999 therefore these variables only provide details of when minimum wage policy was passed.
+#persid - Person ID (unique identifier)
+#ilodefr2 - Economic activity (We chose ilodefr over statr2 since it unemployment was defined by ILO and was a better descriptor)
+#ttushr2 - Total usual hours in main job
+#grsswk2 - gross weekly pay 
+#hourpay2 - gross hourly pay
+#age2 - age
+#ethcen2 - ethnic origin
+#uresmc2 - Regions of the usual residence
+#sex - sex
+
+# Create a new dataset with the chosen variables
+MinimumWage <- Jan2Jun1999 %>% dplyr::select(persid, ilodefr2, ttushr2, hourpay2, grsswk2, age2, sex, uresmc2, ethcen2)
+
+
+# ilodefr2 - Economic activity 
+# Remove 2, 3 and 4 since we are analysing data for employed people
+MinimumWage <- subset(MinimumWage, ilodefr2 < 2)
+table(MinimumWage$ilodefr2) # 1 (employed) - 43525
+class(MinimumWage$ilodefr2) # "haven_labelled" "vctrs_vctr"     "double"
+
+# ttushr2 - Total usual hours in main job
+table(MinimumWage$ttushr2)
+# Remove -9, -8 and 0 since we are analysing data for employed people
+MinimumWage <- subset(MinimumWage, ttushr2 > 0)
+
+#grsswk2 - gross weekly pay
+table(MinimumWage$grsswk2)
+# Remove -9, -8 and 0 since we are analysing data for employed people
+MinimumWage <- subset(MinimumWage, grsswk2 > 0)
+
+#hourpay2 - hourly pay
+table(MinimumWage$hourpay2) # Since unemployed people have been removed hourpay2 does not need any changes
+
+## Introduce another variable where sex states whether it's male or female
+table(MinimumWage$sex)
+# Introduce another variable where sex states whether it's male or femake
+MinimumWage$sexname[MinimumWage$sex == 1] <- "Male"
+MinimumWage$sexname[MinimumWage$sex == 2] <- "Female"
+#Exploring Dataset - sexname
+table(MinimumWage$sexname)
+
+#ethcen2 - Ethnic Origin
+table(MinimumWage$ethcen2)
+# Remove observation (-8) since they don't have a variable attached
+MinimumWage <- subset(MinimumWage, ethcen2 > -8)
+# Create another variable with descriptions of the personid
+MinimumWage$ethniname[MinimumWage$ethcen2 == 0] <- "White"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 1] <- "Black" #Group all black people as one regardless of whether African and Carribean
+MinimumWage$ethniname[MinimumWage$ethcen2 == 2] <- "Black"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 3] <- "Black"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 4] <- "Mixed"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 5] <- "Asian" #Group all Asian people as one regardless of whether Indian, Chinese, Pakistani and Bangladesh
+MinimumWage$ethniname[MinimumWage$ethcen2 == 6] <- "Asian"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 7] <- "Asian"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 8] <- "Asian"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 9] <- "Asian"
+MinimumWage$ethniname[MinimumWage$ethcen2 == 10] <- "Mixed" #Group all mixed people as one regardless of whether mixed with any other race 
+MinimumWage$ethniname[MinimumWage$ethcen2 == 11] <- "Mixed"
+#Exploring Dataset - ethniname
+table(MinimumWage$ethniname)
+
+#uresmc2 - region of residence
+#Exploring the variable
+table(MinimumWage$uresmc2)
+#Filter out observations that are not North West and London
+MinimumWage <- MinimumWage %>% filter(uresmc2 %in% c(8,9,14,16))
+# Create a new variable and rename it 8 (Inner London in dictionary) and 9  (Outer London) will be coded London
+MinimumWage$uresmname[MinimumWage$uresmc2 == 8] <- "London"
+MinimumWage$uresmname[MinimumWage$uresmc2 == 9] <- "London"
+# Create a new variable and rename it 14 (Greater Manchester in dictionary) and 9  (Rest of North West) will be coded London
+MinimumWage$uresmname[MinimumWage$uresmc2 == 14] <- "North West"
+MinimumWage$uresmname[MinimumWage$uresmc2 == 16] <- "North West"
+# London - 799  & North West -  675 
+class(MinimumWage$uresmname)
+class(MinimumWage$uresmc2)
+      
+# Create a new column denoting treatment variable which codes London as 1 and North West as 0
+MinimumWage$treatment <- ifelse(MinimumWage$uresmc2 %in% c(8,9), 1,0)
+
+#Change the class of a few variables 
+# Sex, ethnicity and treatment from double to factor
+MinimumWage$sex = as.factor(MinimumWage$sex)
+MinimumWage$ethniname = as.factor(MinimumWage$ethniname)
+MinimumWage$treatment = as.factor(MinimumWage$treatment)
+MinimumWage$uresmc2 = as.factor(MinimumWage$uresmc2)
+
+#Exploring the dataset to ensure the data is clean and ready for analysis
+str(MinimumWage)
+dim(MinimumWage)
+colnames(MinimumWage)
+class(MinimumWage$persid)
+class(MinimumWage$ilodefr2) 
+class(MinimumWage$ttushr2)
+class(MinimumWage$hourpay2)
+class(MinimumWage$grsswk2)
+class(MinimumWage$age2)
+class(MinimumWage$sex)
+class(MinimumWage$uresmc2)
+class(MinimumWage$ethcen2)
+class(MinimumWage$sexname)
+class(MinimumWage$ethniname)
+class(MinimumWage$uresmname)
+class(MinimumWage$treatment)
+
+# Check if there any duplicate values in persid to ensure level of observation
+duplicates <- MinimumWage[duplicated(MinimumWage$persid), ]
+print(duplicates)
+
+#---- Create a new subset of the data:MinimumWage for the running of analysis
+MinimumWage2 <- MinimumWage %>% dplyr::select(persid, ttushr2, hourpay2, grsswk2, age2, sex, ethniname, uresmname, treatment)
+
+# Summary Statistics of numerical variables
+summary_stats <- summary(MinimumWage2[c("ttushr2", "hourpay2", "grsswk2", "age2")])
+print(summary_stats)
+
+# Summary Statistics of categorical variables
+table(MinimumWage2$sex)
+table(MinimumWage2$ethniname)
+table(MinimumWage2$uresmname)
+
+# Boxplot of Hourly Pay by Region of Residence
+ggplot(MinimumWage2, aes(x = uresmname, y = hourpay2)) +
+  geom_boxplot(fill = "yellow", color = "black") +
+  labs(title = "Hourly Pay by Region of Residence", x = "Region of Residence", y = "Hourly Pay")
+
+#------ Running Analysis
+str(MinimumWage2)
+attach(MinimumWage2)
+
+#run the naive regression
+lm1 = lm(data = MinimumWage2, hourpay2 ~.-persid-grsswk2-uresmname)
+summary(lm1)
+
+#Load libraries for matching
+library(Matching)
+library(ebal)
+library(xtable)
+
+
+MinimumWage3 <- MinimumWage2
+MinimumWage3$treatment = ifelse(MinimumWage3$treatment==1,0,1)
+
+
+# Check balance in unmatched data
+bal.formula = formula(data = MinimumWage3, treatment ~. -persid-grsswk2-uresmname)
+
+# Print a balance table
+mb.unmatched = MatchBalance(bal.formula, data = MinimumWage3)
+tab.unmatched = baltest.collect(mb.unmatched,
+                                var.names = c(" ttushr2"," hourpay2","age2","sex2","ethninameBlack ",
+                                              "ethninameMixed", "ethninameWhite "    ), after=F)
+## results before matching, all variables except for treatment
+
+print(xtable(tab.unmatched[, 1:7], label='tab:unmatched-bal',
+             caption='Covariate Balance in Unmatched Data'),
+      caption.placement='top')
+
+
+# Run logit regression to get predictions of probability of treatment
+Prob_Treat = glm(data = MinimumWage2, treatment ~.-persid-grsswk2-uresmname,
+                 family = binomial(link="logit"))
+summary(Prob_Treat)
+MinimumWage3$Prop_Score = Prob_Treat$fitted.values  # Save propensity scores
+
+#Running matching once using propensity scores 
+set.seed(123)
+ATT1 = Match(Y = MinimumWage3$hourpay2,                  # outcome
+             Tr = MinimumWage3$treatment,            # treatment assignment
+             X = as.matrix(MinimumWage3$Prop_Score), # Covariate, here ps
+             ties = F,                       # If one treated obs matches more than one control. Either average (T) or randomly broken ties (F)
+             estimand = "ATT")               # causal effect to be estimated
+summary(ATT1)
+
+# Checking the balance from the matching estimator
+MatchBalance(treatment ~ Prop_Score, data = MinimumWage3, match.out = ATT1)
+
+# Plot histograms of propensity score
+plot(hist(MinimumWage3$Prop_Score[MinimumWage2$treatment==0]))
+plot(hist(MinimumWage3$Prop_Score[MinimumWage2$treatment==1]))
+
+# Construct dataframe containing frequency with which each control person is used as a match
+A = as.data.frame(table(ATT1$index.control) )
+max(A$Freq)
